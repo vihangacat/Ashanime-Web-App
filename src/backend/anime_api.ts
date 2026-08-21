@@ -50,6 +50,10 @@ export interface PaginatedResponse {
   totalPages?: number;
 }
 
+export interface LegacyUpcomingResponse extends PaginatedResponse {
+  data: NormalizedAnime[];
+}
+
 export interface PaginationParams {
   page?: number;
   perPage?: number;
@@ -240,7 +244,7 @@ export class AnimeApi {
     }
   }
 
-  async getUpcomingAnimes(params: PaginationParams = {}): Promise<PaginatedResponse> {
+  async getUpcomingAnimes(params: PaginationParams = {}): Promise<LegacyUpcomingResponse> {
     try {
       const response = await axios.get(`${JIKAN_API}/top/anime`, {
         params: {
@@ -250,14 +254,19 @@ export class AnimeApi {
         },
       });
 
+      const results = (response.data.data || []).map((anime: any) =>
+        this.convertJikanAnime(anime)
+      );
+
       return {
-        results: (response.data.data || []).map((anime: any) => this.convertJikanAnime(anime)),
+        results,
+        data: results, // Included for backward compatibility with Upcoming.tsx (fixes TS2339)
         hasNextPage: Boolean(response.data.pagination?.has_next_page),
         totalPages: response.data.pagination?.last_visible_page || 1,
       };
     } catch (error) {
       console.error("Upcoming anime failed:", error);
-      return { results: [], hasNextPage: false, totalPages: 0 };
+      return { results: [], data: [], hasNextPage: false, totalPages: 0 };
     }
   }
 }
